@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel de Bordo - CodeQuest</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; margin: 0; padding: 20px; }
+        .header { background-color: #2c3e50; color: white; padding: 15px 20px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .header h2 { margin: 0; display: flex; align-items: center; gap: 10px; }
+        .user-info { font-size: 0.9em; opacity: 0.9; }
+
+        .container { display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap; }
+        .coluna { display: flex; flex-direction: column; gap: 20px; flex: 1; min-width: 300px; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); width: 100%; box-sizing: border-box; }
+
+        h3 { margin-top: 0; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        .card-professor h3 { color: #8e44ad; border-bottom-color: #8e44ad; }
+        .card-aluno h3 { color: #2980b9; border-bottom-color: #2980b9; }
+
+        input, select, textarea, button { width: 100%; padding: 10px; margin: 8px 0; border-radius: 4px; border: 1px solid #ccc; box-sizing: border-box; font-family: inherit; }
+        button { color: white; border: none; cursor: pointer; font-weight: bold; }
+        .btn-aluno { background-color: #2980b9; }
+        .btn-professor { background-color: #8e44ad; }
+        .btn-danger { background-color: #e74c3c; width: auto; padding: 5px 10px; font-size: 0.8em; }
+        button:hover { opacity: 0.9; }
+
+        .lista-itens { list-style: none; padding: 0; margin: 0; }
+        .lista-itens li { background: #f9f9f9; border: 1px solid #ddd; padding: 10px; margin-bottom: 8px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center;}
+        .tag-global { background: #27ae60; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.8em; margin-left: 10px; }
+        .tag-turma { background: #2980b9; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.8em; margin-left: 10px; }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div>
+        <h2>🚀 CodeQuest <span style="font-size: 14px; background: #27ae60; padding: 3px 8px; border-radius: 12px; margin-left: 10px;">PRO</span></h2>
+        <div class="user-info">Logado como: <strong id="lblNome">-</strong> (<span id="lblPerfil">-</span>)</div>
+    </div>
+    <button class="btn-danger" id="btnSair" style="padding: 10px 20px; font-size: 1em;">Encerrar Sessão</button>
+</div>
+
+<!-- ÁREA DO PROFESSOR -->
+<div id="painelProfessor" class="container hidden">
+    <div class="coluna">
+        <div class="card card-professor">
+            <h3>1. Criar Nova Turma</h3>
+            <form id="formTurma">
+                <input type="text" id="nomeTurma" placeholder="Nome da Turma (Ex: Lógica 101)" required>
+                <input type="text" id="codigoTurma" placeholder="Código de Acesso (Ex: PROG2026)" required>
+                <button type="submit" class="btn-professor">Cadastrar Turma</button>
+            </form>
+        </div>
+        <div class="card card-professor">
+            <h3>Minhas Turmas (Banco Real)</h3>
+            <ul id="listaTurmasProfessor" class="lista-itens"></ul>
+        </div>
+    </div>
+    <div class="coluna">
+        <div class="card card-professor">
+            <h3>2. Cadastrar Desafio (Questão)</h3>
+            <form id="formQuestao">
+                <select id="selectTurmaParaQuestao" required>
+                    <option value="" disabled selected>Carregando turmas...</option>
+                </select>
+                <textarea id="enunciadoQuestao" placeholder="Enunciado do problema lógico..." rows="3" required></textarea>
+                <input type="text" id="altCerta" placeholder="Alternativa Correta" style="border-left: 4px solid #27ae60;" required>
+                <input type="text" id="altErrada1" placeholder="Alternativa Incorreta 1" required>
+                <input type="text" id="altErrada2" placeholder="Alternativa Incorreta 2" required>
+                <input type="text" id="altErrada3" placeholder="Alternativa Incorreta 3" required>
+                <button type="submit" class="btn-professor">Salvar Questão na Turma</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ÁREA DO ALUNO -->
+<div id="painelAluno" class="container hidden">
+    <div class="coluna">
+        <div class="card card-aluno">
+            <h3>👨‍🎓 Ingressar em Turma</h3>
+            <form id="formEntrarTurma">
+                <input type="text" id="codigoAcessoAluno" placeholder="Insira o Código da Turma" required>
+                <button type="submit" class="btn-aluno">Matricular-se no Banco</button>
+            </form>
+        </div>
+        <div class="card card-aluno">
+            <h3>Minhas Matrículas Ativas</h3>
+            <ul id="listaTurmasAluno" class="lista-itens"></ul>
+        </div>
+    </div>
+    <div class="coluna">
+        <div class="card card-aluno">
+            <h3>Desafios Disponíveis</h3>
+            <ul id="listaQuestoesAluno" class="lista-itens"></ul>
+        </div>
+    </div>
+</div>
+
+<script>
+    const API_URL = 'http://localhost:8080/api';
+    const sessaoStr = localStorage.getItem("usuarioSessao");
+
+    if (!sessaoStr) {
+        alert("Sessão expirada. Faça login novamente.");
+        window.location.replace("index.html");
+    }
+
+    const usuarioLogado = JSON.parse(sessaoStr);
+    document.getElementById("lblNome").textContent = usuarioLogado.nome;
+    document.getElementById("lblPerfil").textContent = usuarioLogado.perfil;
+    const perfil = String(usuarioLogado.perfil).toUpperCase();
+
+    if (perfil === "PROFESSOR") {
+        document.getElementById("painelProfessor").classList.remove("hidden");
+        carregarDadosDoProfessor();
+    } else if (perfil === "ALUNO") {
+        document.getElementById("painelAluno").classList.remove("hidden");
+        carregarDadosDoAluno();
+    } else {
+        sair();
+    }
+
+    //
+    // LÓGICA DO PROFESSOR
+    function carregarDadosDoProfessor() {
+        fetch(`${API_URL}/turmas/professor/${usuarioLogado.id}`)
+            .then(res => res.json())
+            .then(turmas => {
+                const ul = document.getElementById("listaTurmasProfessor");
+                const select = document.getElementById("selectTurmaParaQuestao");
+                ul.innerHTML = "";
+                select.innerHTML = '<option value="" disabled selected>Selecione a turma...</option>';
+
+                if(turmas.length === 0) {
+                    ul.innerHTML = "<li>Nenhuma turma cadastrada no banco.</li>";
+                    return;
+                }
+
+                turmas.forEach(turma => {
+                    ul.innerHTML += `
+                        <li>
+                            <div><strong>${turma.nome}</strong> (Cód: ${turma.codigoAcesso})</div>
+                            <button class="btn-danger" onclick="deletarTurma(${turma.id})">Excluir</button>
+                        </li>`;
+                    select.innerHTML += `<option value="${turma.id}">${turma.nome}</option>`;
+                });
+            });
+    }
+
+    document.getElementById('formTurma').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const turma = {
+            nome: document.getElementById('nomeTurma').value,
+            codigoAcesso: document.getElementById('codigoTurma').value,
+            professorId: usuarioLogado.id
+        };
+        fetch(`${API_URL}/turmas`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(turma) })
+        .then(() => {
+            alert('Turma salva no banco de dados!');
+            document.getElementById('formTurma').reset();
+            carregarDadosDoProfessor();
+        });
+    });
+
+    // Função de Deletar Turma (Testando o endpoint DELETE)
+    window.deletarTurma = function(id) {
+        if(confirm("Tem certeza que deseja excluir esta turma? As questões dela também ficarão órfãs.")) {
+            fetch(`${API_URL}/turmas/${id}`, { method: 'DELETE' })
+            .then(() => {
+                alert("Turma excluída com sucesso.");
+                carregarDadosDoProfessor();
+            });
+        }
+    };
+
+    document.getElementById('formQuestao').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const questao = {
+            turmaId: document.getElementById('selectTurmaParaQuestao').value,
+            enunciado: document.getElementById('enunciadoQuestao').value,
+            alternativaCerta: document.getElementById('altCerta').value,
+            alternativaErrada1: document.getElementById('altErrada1').value,
+            alternativaErrada2: document.getElementById('altErrada2').value,
+            alternativaErrada3: document.getElementById('altErrada3').value
+        };
+        fetch(`${API_URL}/questoes`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(questao) })
+        .then(() => {
+            alert('Questão salva no banco de dados!');
+            document.getElementById('formQuestao').reset();
+        });
+    });
+    // LÓGICA DO ALUNO
+    //  carregarDadosDoAluno() {
+        fetch(`${API_URL}/turmas`).then(r => r.json()).then(todasTurmas => {
+            fetch(`${API_URL}/matriculas/aluno/${usuarioLogado.id}`).then(r => r.json()).then(matriculas => {
+                const ulTurmas = document.getElementById("listaTurmasAluno");
+                const ulQuestoes = document.getElementById("listaQuestoesAluno");
+                ulTurmas.innerHTML = ""; ulQuestoes.innerHTML = "";
+
+                if(matriculas.length === 0) {
+                    ulTurmas.innerHTML = "<li>Nenhuma matrícula encontrada no banco.</li>";
+                }
+
+                matriculas.forEach(mat => {
+                    const turmaDetalhe = todasTurmas.find(t => t.id === mat.turmaId);
+                    if(turmaDetalhe) {
+                        ulTurmas.innerHTML += `
+                            <li>
+                                <div> ${turmaDetalhe.nome}</div>
+                                <button class="btn-danger" onclick="cancelarMatricula(${mat.id})">Sair</button>
+                            </li>`;
+
+                        fetch(`${API_URL}/questoes/turma/${turmaDetalhe.id}`).then(r => r.json()).then(questoes => {
+                            questoes.forEach(q => renderizarQuestao(q, turmaDetalhe.nome, ulQuestoes, "tag-turma"));
+                        });
+                    }
+                });
+
+                fetch(`${API_URL}/questoes/globais`).then(r => r.json()).then(globais => {
+                    globais.forEach(q => renderizarQuestao(q, "Global", ulQuestoes, "tag-global"));
+                });
+            });
+        });
+    }
+
+    //Cria a interface de responder a questão com alternativas misturadas
+    function renderizarQuestao(questao, nomeOrigem, containerList, classeTag) {
+        let alternativas = [
+            questao.alternativaCerta,
+            questao.alternativaErrada1,
+            questao.alternativaErrada2,
+            questao.alternativaErrada3
+        ];
+
+        // Mistura as alternativas aleatoriamente!
+        alternativas = alternativas.sort(() => Math.random() - 0.5);
+
+        // Cria os botões HTML para cada alternativa
+        let botoesHTML = alternativas.map(alt =>
+            `<button style="margin: 5px 0; background: #ecf0f1; color: #2c3e50; border: 1px solid #bdc3c7;"
+                     onclick="verificarResposta(this, '${alt}', '${questao.alternativaCerta}')">
+                ${alt}
+             </button>`
+        ).join('');
+
+        containerList.innerHTML += `
+            <li style="flex-direction: column; align-items: flex-start; gap: 10px;">
+                <div style="width: 100%;">
+                    <strong>Desafio:</strong> ${questao.enunciado}
+                    <span class="${classeTag}" style="float:right;">${nomeOrigem}</span>
+                </div>
+                <div style="width: 100%; display: flex; flex-direction: column;">
+                    ${botoesHTML}
+                </div>
+            </li>`;
+    }
+
+    // Valida se o aluno clicou na resposta certa
+    window.verificarResposta = function(botaoElemento, respostaEscolhida, respostaCerta) {
+        if (respostaEscolhida === respostaCerta) {
+            botaoElemento.style.backgroundColor = "#27ae60"; // Fica verde
+            botaoElemento.style.color = "white";
+            alert(" Parabéns, você ACERTOU! +50 XP");
+        } else {
+            botaoElemento.style.backgroundColor = "#e74c3c"; // Fica vermelho
+            botaoElemento.style.color = "white";
+            alert(" Resposta Incorreta. Tente novamente!");
+        }
+    };
+
+    document.getElementById('formEntrarTurma').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const codigoDigitado = document.getElementById('codigoAcessoAluno').value.trim();
+
+        fetch(`${API_URL}/turmas`).then(r => r.json()).then(turmas => {
+            const turmaEncontrada = turmas.find(t => t.codigoAcesso === codigoDigitado);
+            if (turmaEncontrada) {
+                // Endpoint real de Matrícula (POST)
+                const matricula = { alunoId: usuarioLogado.id, turmaId: turmaEncontrada.id };
+                fetch(`${API_URL}/matriculas`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(matricula) })
+                .then(res => {
+                    if(res.status === 409) { alert("Você já está matriculado nesta turma!"); throw new Error("Duplicada"); }
+                    return res.json();
+                })
+                .then(() => {
+                    alert(`Matrícula efetuada com sucesso na turma ${turmaEncontrada.nome}!`);
+                    document.getElementById('codigoAcessoAluno').value = "";
+                    carregarDadosDoAluno();
+                }).catch(err => console.log(err));
+            } else {
+                alert("Código inválido. Nenhuma turma encontrada.");
+            }
+        });
+    });
+
+    // Cancelar Matrícula (Testando o endpoint DELETE)
+    window.cancelarMatricula = function(matriculaId) {
+        if(confirm("Deseja realmente sair desta turma?")) {
+            fetch(`${API_URL}/matriculas/${matriculaId}`, { method: 'DELETE' })
+            .then(() => {
+                alert("Matrícula cancelada.");
+                carregarDadosDoAluno();
+            });
+        }
+    };
+
+    document.getElementById("btnSair").addEventListener("click", () => {
+        localStorage.removeItem("usuarioSessao");
+        window.location.replace("index.html");
+    });
+</script>
+
+</body>
+</html>
